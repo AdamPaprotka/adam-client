@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "id": "adam-client",
+  "version": "${version}",
+  "name": "Adam Client",
+  "description": "dear imgui is calling please help me",
+  "authors": [
+    "AdamPaprotka"
+  ],
+  "license": "CC0-1.0",
+  "icon": "assets/adam-client/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.adam.adamsclient.client.AdamClientClient"
+    ]
+  },
+  "mixins": [
+    "adam-client.mixins.json",
+    {
+      "config": "adam-client.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.17.0",
+    "minecraft": "~1.21.4",
+    "java": ">=17",
+    "fabric-api": "*"
+  }
+}
