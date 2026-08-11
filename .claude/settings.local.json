@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(cmd /c autobuild.bat)",
-      "Bash(cmd /c \"gradlew.bat build 2>&1\")",
-      "Bash(del *)"
-    ]
-  }
-}

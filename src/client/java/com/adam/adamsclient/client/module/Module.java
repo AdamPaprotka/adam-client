@@ -1,6 +1,7 @@
 package com.adam.adamsclient.client.module;
 
 import com.adam.adamsclient.client.module.setting.Setting;
+import net.minecraft.client.util.math.MatrixStack;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -41,4 +42,5 @@ public abstract class Module {
     protected void onEnable() {}
     protected void onDisable() {}
     public void onTick() {}
+    public void onRender(MatrixStack matrices, float tickDelta) {}
 }

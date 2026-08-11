@@ -30,10 +30,13 @@ dependencies {
     modImplementation("net.fabricmc:fabric-loader:${providers.gradleProperty("loader_version").get()}")
     modImplementation("net.fabricmc.fabric-api:fabric-api:${providers.gradleProperty("fabric_api_version").get()}")
 
-    // ImGui
-    modImplementation("io.github.spair:imgui-java-binding:1.86.11")
-    modImplementation("io.github.spair:imgui-java-lwjgl3:1.86.11")
-    runtimeOnly("io.github.spair:imgui-java-natives-windows:1.86.11")
+    // ImGui (plain Java libs, not Fabric mods — embed via jar-in-jar so they ship with the mod)
+    implementation("io.github.spair:imgui-java-binding:1.86.11")
+    include("io.github.spair:imgui-java-binding:1.86.11")
+    implementation("io.github.spair:imgui-java-lwjgl3:1.86.11")
+    include("io.github.spair:imgui-java-lwjgl3:1.86.11")
+    implementation("io.github.spair:imgui-java-natives-windows:1.86.11")
+    include("io.github.spair:imgui-java-natives-windows:1.86.11")
 }
 
 tasks.processResources {
