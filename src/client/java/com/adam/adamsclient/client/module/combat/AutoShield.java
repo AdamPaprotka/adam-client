@@ -24,6 +24,9 @@ public class AutoShield extends Module {
     private final FloatSetting holdTicks = new FloatSetting.Builder("Hold Ticks")
             .defaultValue(6f).min(1f).max(40f).minSlider(1f).maxSlider(20f).build();
 
+    /** While both this and KillAura are on, stay blocked permanently except the exact tick KillAura swings. */
+    private final BoolSetting killAuraSync = new BoolSetting("KillAura Sync", true);
+
     private int blockTicksLeft = 0;
 
     public AutoShield() {
@@ -33,6 +36,7 @@ public class AutoShield extends Module {
         addSetting(requireFacing);
         addSetting(reactToSwing);
         addSetting(holdTicks);
+        addSetting(killAuraSync);
     }
 
     @Override
@@ -40,14 +44,25 @@ public class AutoShield extends Module {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
 
-        boolean threat = findThreat(mc);
-        if (threat) {
-            blockTicksLeft = Math.max(1, holdTicks.getValue().intValue());
-        } else if (blockTicksLeft > 0) {
-            blockTicksLeft--;
+        boolean killAuraActive = killAuraSync.getValue()
+                && KillAura.INSTANCE != null
+                && KillAura.INSTANCE.isEnabled();
+
+        boolean pressed;
+        if (killAuraActive) {
+            // Stay blocked at all times; only duck it on the exact tick KillAura lands a hit.
+            pressed = !KillAura.attacking;
+        } else {
+            boolean threat = findThreat(mc);
+            if (threat) {
+                blockTicksLeft = Math.max(1, holdTicks.getValue().intValue());
+            } else if (blockTicksLeft > 0) {
+                blockTicksLeft--;
+            }
+            pressed = blockTicksLeft > 0;
         }
 
-        mc.options.useKey.setPressed(blockTicksLeft > 0);
+        mc.options.useKey.setPressed(pressed);
     }
 
     @Override

@@ -15,6 +15,8 @@ import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 
 public class KillAura extends Module {
+    public static KillAura INSTANCE;
+
     private final FloatSetting range = new FloatSetting.Builder("Range")
             .defaultValue(4.5f).min(0f).max(10f).minSlider(0f).maxSlider(6f).build();
     private final BoolSetting players       = new BoolSetting("Players", true);
@@ -53,8 +55,12 @@ public class KillAura extends Module {
     private int ticksSinceReady = 0;
     private int currentRandomTickDelay = 0;
 
+    /** True only on the tick KillAura actually lands a swing — read by AutoShield to duck the block. */
+    public static volatile boolean attacking = false;
+
     public KillAura() {
         super("KillAura", Category.COMBAT);
+        INSTANCE = this;
         addSetting(range);
         addSetting(players);
         addSetting(mobs);
@@ -76,7 +82,13 @@ public class KillAura extends Module {
     }
 
     @Override
+    protected void onDisable() {
+        attacking = false;
+    }
+
+    @Override
     public void onTick() {
+        attacking = false;
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null || mc.interactionManager == null) return;
 
@@ -135,6 +147,8 @@ public class KillAura extends Module {
         if (ticksSinceReady++ < currentRandomTickDelay) return;
         ticksSinceReady = 0;
         currentRandomTickDelay = (int) (Math.random() * (randomTicks.getValue() + 1));
+
+        attacking = true;
 
         if (snapHit.getValue()) {
             float savedYaw = mc.player.getYaw();
