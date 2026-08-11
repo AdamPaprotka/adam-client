@@ -45,7 +45,13 @@ public class KillAura extends Module {
 
     private final BoolSetting autoDelay     = new BoolSetting("Auto Delay", false);
 
+    /** Extra random tick delay before attacking, like FakeLag's random extra but tick-based. */
+    private final FloatSetting randomTicks  = new FloatSetting.Builder("Random Ticks")
+            .defaultValue(0f).min(0f).max(40f).minSlider(0f).maxSlider(20f).build();
+
     private long lastAttackTime = 0;
+    private int ticksSinceReady = 0;
+    private int currentRandomTickDelay = 0;
 
     public KillAura() {
         super("KillAura", Category.COMBAT);
@@ -66,6 +72,7 @@ public class KillAura extends Module {
         addSetting(tp);
         addSetting(tpRange);
         addSetting(autoDelay);
+        addSetting(randomTicks);
     }
 
     @Override
@@ -124,6 +131,10 @@ public class KillAura extends Module {
                 ? computeAutoDelay(mc, target)
                 : (long)(float) delay.getValue();
         if (now - lastAttackTime < effectiveDelay) return;
+
+        if (ticksSinceReady++ < currentRandomTickDelay) return;
+        ticksSinceReady = 0;
+        currentRandomTickDelay = (int) (Math.random() * (randomTicks.getValue() + 1));
 
         if (snapHit.getValue()) {
             float savedYaw = mc.player.getYaw();
