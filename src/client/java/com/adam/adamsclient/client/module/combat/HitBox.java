@@ -17,12 +17,20 @@ public class HitBox extends Module {
     private final BoolSetting silentAim = new BoolSetting("Silent Aim", false);
     private final FloatSetting silentAimRange = new FloatSetting.Builder("Silent Aim Range")
             .defaultValue(4.5f).min(1f).max(10f).minSlider(1f).maxSlider(6f).build();
+    /** Ticks to wait after snapping onto the target before actually swinging. */
+    private final FloatSetting hitDelay = new FloatSetting.Builder("Hit Delay")
+            .defaultValue(0f).min(0f).max(20f).minSlider(0f).maxSlider(10f).build();
+
+    /** Target queued for a delayed hit; null when no hit is pending. */
+    private LivingEntity pendingTarget = null;
+    private int pendingTicksLeft = 0;
 
     public HitBox() {
         super("HitBox", Category.COMBAT);
         addSetting(expand);
         addSetting(silentAim);
         addSetting(silentAimRange);
+        addSetting(hitDelay);
     }
 
     @Override
@@ -42,20 +50,40 @@ public class HitBox extends Module {
             }
         }
 
+        if (pendingTarget != null) {
+            if (!pendingTarget.isAlive() || mc.player.squaredDistanceTo(pendingTarget) > silentAimRange.getValue() * silentAimRange.getValue()) {
+                pendingTarget = null;
+            } else if (pendingTicksLeft-- <= 0) {
+                performHit(mc, pendingTarget);
+                pendingTarget = null;
+            }
+        }
+
         if (silentAim.getValue() && mc.options.attackKey.wasPressed()) {
             LivingEntity target = findTarget(mc, silentAimRange.getValue());
             if (target != null) {
-                float savedYaw = mc.player.getYaw();
-                float savedPitch = mc.player.getPitch();
-
-                rotateTo(mc, target);
-                mc.interactionManager.attackEntity(mc.player, target);
-                mc.player.swingHand(Hand.MAIN_HAND);
-
-                mc.player.setYaw(savedYaw);
-                mc.player.setPitch(savedPitch);
+                int delayTicks = hitDelay.getValue().intValue();
+                if (delayTicks <= 0) {
+                    performHit(mc, target);
+                } else {
+                    pendingTarget = target;
+                    pendingTicksLeft = delayTicks;
+                }
             }
         }
+    }
+
+    /** Snaps onto the target, attacks, then restores the player's real rotation. */
+    private void performHit(MinecraftClient mc, LivingEntity target) {
+        float savedYaw = mc.player.getYaw();
+        float savedPitch = mc.player.getPitch();
+
+        rotateTo(mc, target);
+        mc.interactionManager.attackEntity(mc.player, target);
+        mc.player.swingHand(Hand.MAIN_HAND);
+
+        mc.player.setYaw(savedYaw);
+        mc.player.setPitch(savedPitch);
     }
 
     /** Nearest living entity within range whose (expanded) bounding box the crosshair could plausibly be near. */
