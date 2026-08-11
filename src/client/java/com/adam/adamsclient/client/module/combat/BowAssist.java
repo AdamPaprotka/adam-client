@@ -140,8 +140,11 @@ public class BowAssist extends Module {
         if (charge <= 0f) charge = 0.1f;
         double v = charge * 3.0;
 
-        LivingEntity target = findTarget(mc);
-        if (target != null) aimAt(mc, target, v);
+        // Tip Only is a pure preview: don't touch aim, just show where the current shot would land.
+        if (!tipOnly.getValue()) {
+            LivingEntity target = findTarget(mc);
+            if (target != null) aimAt(mc, target, v);
+        }
 
         if (showLanding.getValue()) {
             updateLandingPrediction(mc, v, charge);
@@ -154,8 +157,10 @@ public class BowAssist extends Module {
     /** Simulates the arrow's flight from the player's current look direction to predict where it lands. */
     private void updateLandingPrediction(MinecraftClient mc, double v, float charge) {
         Vec3d start = new Vec3d(mc.player.getX(), mc.player.getEyeY(), mc.player.getZ());
-        float yaw = mc.player.getYaw();
-        float pitch = mc.player.getPitch();
+        // In Tip Only mode use the rotation the server has already been sent (last tick's,
+        // before any local aim assist this tick) rather than the client's just-updated look.
+        float yaw = tipOnly.getValue() ? mc.player.prevYaw : mc.player.getYaw();
+        float pitch = tipOnly.getValue() ? mc.player.prevPitch : mc.player.getPitch();
 
         Vec3d[] path = simulateTrajectory(mc, start, yaw, pitch, v);
         lastTrajectory = path;
