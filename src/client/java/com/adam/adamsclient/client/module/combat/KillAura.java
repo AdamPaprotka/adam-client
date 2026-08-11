@@ -26,12 +26,13 @@ public class KillAura extends Module {
     private final BoolSetting smoothRotation = new BoolSetting("Smoothing", true);
     private final FloatSetting rotationSpeed = new FloatSetting.Builder("Rotation Speed")
             .defaultValue(30f).min(1f).max(180f).minSlider(5f).maxSlider(90f).build();
+    private final BoolSetting snapHit       = new BoolSetting("Snap Hit", false);
 
     private final BoolSetting smart         = new BoolSetting("Smart", false);
     private final FloatSetting keepDistance = new FloatSetting.Builder("Keep Distance")
             .defaultValue(3f).min(0.5f).max(10f).minSlider(0.5f).maxSlider(6f).build();
     private final FloatSetting smartSpeed   = new FloatSetting.Builder("Smart Speed")
-            .defaultValue(0.25f).min(0.05f).max(1f).minSlider(0.05f).maxSlider(0.6f).build();
+            .defaultValue(0.1f).min(0.05f).max(0.2f).minSlider(0.05f).maxSlider(0.2f).build();
     private final BoolSetting antiWall      = new BoolSetting("Anti Wall", true);
     private final BoolSetting antiHole      = new BoolSetting("Anti Hole", true);
 
@@ -56,6 +57,7 @@ public class KillAura extends Module {
         addSetting(noRotate);
         addSetting(smoothRotation);
         addSetting(rotationSpeed);
+        addSetting(snapHit);
         addSetting(smart);
         addSetting(keepDistance);
         addSetting(smartSpeed);
@@ -123,9 +125,21 @@ public class KillAura extends Module {
                 : (long)(float) delay.getValue();
         if (now - lastAttackTime < effectiveDelay) return;
 
-        if (!noRotate.getValue()) rotateTo(mc, target);
-        mc.interactionManager.attackEntity(mc.player, target);
-        mc.player.swingHand(Hand.MAIN_HAND);
+        if (snapHit.getValue()) {
+            float savedYaw = mc.player.getYaw();
+            float savedPitch = mc.player.getPitch();
+
+            rotateTo(mc, target, true);
+            mc.interactionManager.attackEntity(mc.player, target);
+            mc.player.swingHand(Hand.MAIN_HAND);
+
+            mc.player.setYaw(savedYaw);
+            mc.player.setPitch(savedPitch);
+        } else {
+            if (!noRotate.getValue()) rotateTo(mc, target, smoothRotation.getValue());
+            mc.interactionManager.attackEntity(mc.player, target);
+            mc.player.swingHand(Hand.MAIN_HAND);
+        }
         lastAttackTime = now;
     }
 
@@ -201,7 +215,7 @@ public class KillAura extends Module {
         return (long)(cooldownTicks * 50) + 50;
     }
 
-    private void rotateTo(MinecraftClient mc, Entity target) {
+    private void rotateTo(MinecraftClient mc, Entity target, boolean smooth) {
         double dx = target.getX() - mc.player.getX();
         double dy = target.getEyeY() - mc.player.getEyeY();
         double dz = target.getZ() - mc.player.getZ();
@@ -209,7 +223,7 @@ public class KillAura extends Module {
         float targetYaw   = (float) Math.toDegrees(Math.atan2(-dx, dz));
         float targetPitch = (float) -Math.toDegrees(Math.atan2(dy, hDist));
 
-        if (smoothRotation.getValue()) {
+        if (smooth) {
             float maxStep = rotationSpeed.getValue();
             float curYaw   = mc.player.getYaw();
             float curPitch = mc.player.getPitch();

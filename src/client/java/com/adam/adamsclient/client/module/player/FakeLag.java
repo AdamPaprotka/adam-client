@@ -28,6 +28,8 @@ public class FakeLag extends Module {
     private final FloatSetting randomExtra = new FloatSetting.Builder("Random Extra")
             .defaultValue(100f).min(0f).minSlider(0f).maxSlider(500f).build();
     private final BoolSetting renderBox = new BoolSetting("Render Box", true);
+    /** Old-style fakelag: don't queue/replay every packet, just send the latest position every N ms. */
+    private final BoolSetting legacyMode = new BoolSetting("Legacy Mode", false);
 
     private final List<QueuedPacket> queue = new ArrayList<>();
     /** The position the server last acknowledged — updated when packets are flushed. */
@@ -35,12 +37,18 @@ public class FakeLag extends Module {
     /** Tracks the scheduled send time of the last queued packet to preserve ordering. */
     private long nextSendAt = 0;
 
+    /** Legacy mode: latest movement packet waiting to be sent, replacing any previous one. */
+    private QueuedPacket legacyPending = null;
+    /** Legacy mode: when the next periodic send is due. */
+    private long legacyNextSendAt = 0;
+
     public FakeLag() {
         super("FakeLag", Category.PLAYER);
         INSTANCE = this;
         addSetting(delay);
         addSetting(randomExtra);
         addSetting(renderBox);
+        addSetting(legacyMode);
 
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
             if (!isEnabled() || !renderBox.getValue() || serverPos == null) return;
@@ -105,6 +113,14 @@ public class FakeLag extends Module {
     public void enqueue(ClientConnection connection, Packet<?> packet) {
         MinecraftClient mc = MinecraftClient.getInstance();
         Vec3d playerPos = mc.player != null ? mc.player.getPos() : Vec3d.ZERO;
+
+        if (legacyMode.getValue()) {
+            // Overwrite the pending packet instead of queuing — intermediate movement is
+            // just dropped, so when the timer fires the server sees one jump, not a replay burst.
+            legacyPending = new QueuedPacket(connection, packet, 0, playerPos);
+            return;
+        }
+
         float base  = delay.getValue();
         float extra = (float) (Math.random() * randomExtra.getValue());
         long now = System.currentTimeMillis();
@@ -118,11 +134,12 @@ public class FakeLag extends Module {
     protected void onEnable() {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player != null) serverPos = mc.player.getPos();
+        legacyNextSendAt = System.currentTimeMillis() + (long) (float) delay.getValue();
     }
 
     @Override
     public void onTick() {
-        flushReady();
+        if (legacyMode.getValue()) flushLegacy(); else flushReady();
     }
 
     @Override
@@ -130,9 +147,14 @@ public class FakeLag extends Module {
         flushing = true;
         for (QueuedPacket qp : queue) qp.connection.send(qp.packet);
         queue.clear();
+        if (legacyPending != null) {
+            legacyPending.connection.send(legacyPending.packet);
+            legacyPending = null;
+        }
         flushing = false;
         serverPos = null;
         nextSendAt = 0;
+        legacyNextSendAt = 0;
     }
 
     private void flushReady() {
@@ -148,6 +170,22 @@ public class FakeLag extends Module {
                 it.remove();
             }
         }
+        flushing = false;
+    }
+
+    private void flushLegacy() {
+        long now = System.currentTimeMillis();
+        if (now < legacyNextSendAt) return;
+
+        float base  = delay.getValue();
+        float extra = (float) (Math.random() * randomExtra.getValue());
+        legacyNextSendAt = now + (long) (base + extra);
+
+        if (legacyPending == null) return;
+        flushing = true;
+        legacyPending.connection.send(legacyPending.packet);
+        serverPos = legacyPending.playerPos;
+        legacyPending = null;
         flushing = false;
     }
 

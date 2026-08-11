@@ -14,7 +14,10 @@
     "VelocityMixin",
     "NoHurtCamMixin",
     "SimpleOptionMixin",
-    "MouseMixin"
+    "MouseMixin",
+    "WorldRendererMixin",
+    "MinecraftClientAccessor",
+    "AntiCrashMixin"
   ],
   "injectors": {
     "defaultRequire": 1
