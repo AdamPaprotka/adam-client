@@ -1,5 +1,6 @@
 package com.adam.adamsclient.client.module;
 
+import com.adam.adamsclient.client.module.combat.AntiAntiKillaura;
 import com.adam.adamsclient.client.module.combat.AutoClicker;
 import com.adam.adamsclient.client.module.combat.AutoTotem;
 import com.adam.adamsclient.client.module.combat.BowAssist;
@@ -49,6 +50,7 @@ public class ModuleManager {
         register(new BowAssist());
         register(new AutoTotem());
         register(new HitBox());
+        register(new AntiAntiKillaura());
 
         // Movement
         register(new Sprint());
