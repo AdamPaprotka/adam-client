@@ -1,5 +1,6 @@
 package com.adam.adamsclient.client.module.combat;
 
+import com.adam.adamsclient.client.RotationManager;
 import com.adam.adamsclient.client.module.Module;
 import com.adam.adamsclient.client.module.setting.BoolSetting;
 import com.adam.adamsclient.client.module.setting.FloatSetting;
@@ -35,6 +36,8 @@ public class BowAssist extends Module {
     private final BoolSetting showLanding = new BoolSetting("Show Landing", true);
     /** When on, only render a marker at the predicted impact point instead of the full arc. */
     private final BoolSetting tipOnly = new BoolSetting("Tip Only", false);
+    /** Hide the auto-aim rotation from the server; it only sees rotation from actual mouse movement. */
+    private final BoolSetting silentRotation = new BoolSetting("Silent Rotation", true);
 
     // Arrow physics (no-drag approximation, blocks/tick).
     private static final double GRAVITY = 0.05;
@@ -57,6 +60,7 @@ public class BowAssist extends Module {
         addSetting(rotationSpeed);
         addSetting(showLanding);
         addSetting(tipOnly);
+        addSetting(silentRotation);
 
         WorldRenderEvents.AFTER_ENTITIES.register(context -> {
             if (!isEnabled() || !showLanding.getValue() || lastLanding == null) return;
@@ -124,6 +128,13 @@ public class BowAssist extends Module {
     }
 
     @Override
+    protected void onDisable() {
+        lastLanding = null;
+        lastTrajectory = null;
+        RotationManager.silent = false;
+    }
+
+    @Override
     public void onTick() {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
@@ -132,6 +143,7 @@ public class BowAssist extends Module {
         if (!mc.player.isUsingItem() || !(mc.player.getActiveItem().getItem() instanceof BowItem)) {
             lastLanding = null;
             lastTrajectory = null;
+            if (RotationManager.silent) RotationManager.silent = false;
             return;
         }
 
@@ -141,10 +153,15 @@ public class BowAssist extends Module {
         double v = charge * 3.0;
 
         // Tip Only is a pure preview: don't touch aim, just show where the current shot would land.
+        boolean aiming = false;
         if (!tipOnly.getValue()) {
             LivingEntity target = findTarget(mc);
-            if (target != null) aimAt(mc, target, v);
+            if (target != null) {
+                aimAt(mc, target, v);
+                aiming = true;
+            }
         }
+        RotationManager.silent = aiming && silentRotation.getValue();
 
         if (showLanding.getValue()) {
             updateLandingPrediction(mc, v, charge);

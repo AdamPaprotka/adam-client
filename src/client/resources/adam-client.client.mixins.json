@@ -17,7 +17,9 @@
     "MouseMixin",
     "WorldRendererMixin",
     "MinecraftClientAccessor",
-    "AntiCrashMixin"
+    "AntiCrashMixin",
+    "MouseRotationMixin",
+    "SilentRotationMixin"
   ],
   "injectors": {
     "defaultRequire": 1

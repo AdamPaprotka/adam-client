@@ -1,5 +1,6 @@
 package com.adam.adamsclient.client.module;
 
+import com.adam.adamsclient.client.RotationManager;
 import com.adam.adamsclient.client.module.combat.AntiAntiKillaura;
 import com.adam.adamsclient.client.module.combat.AutoClicker;
 import com.adam.adamsclient.client.module.combat.AutoShield;
@@ -103,6 +104,7 @@ public class ModuleManager {
     }
 
     public static void onTick() {
+        RotationManager.tick();
         for (Module module : modules) {
             if (module.isEnabled()) module.onTick();
         }
