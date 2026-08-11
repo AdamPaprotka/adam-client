@@ -77,6 +77,9 @@ public class GuiManager {
         lastVisible = visible;
 
         imguiGlfw.newFrame();
+        // ImGui's built-in window-switcher (Ctrl/Shift+Tab) pops up an annoying
+        // window selector while our menu is open — neutralize Tab before it's processed.
+        if (visible) io.setKeysDown(GLFW.GLFW_KEY_TAB, false);
         ImGui.newFrame();
 
         if (hubEnabled) drawHub();

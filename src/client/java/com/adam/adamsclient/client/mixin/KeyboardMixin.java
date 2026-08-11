@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(Keyboard.class)
 public class KeyboardMixin {
-    @Inject(method = "onKey", at = @At("HEAD"))
+    @Inject(method = "onKey", at = @At("HEAD"), cancellable = true)
     private void onKey(long window, int key, int scancode, int action, int modifiers, CallbackInfo ci) {
         if (action != GLFW.GLFW_PRESS) return;
 
@@ -30,6 +30,14 @@ public class KeyboardMixin {
         if (GuiManager.bindingModule != null) {
             GuiManager.bindingModule.setKey(key == GLFW.GLFW_KEY_ESCAPE ? -1 : key);
             GuiManager.bindingModule = null;
+            ci.cancel();
+            return;
+        }
+
+        // Escape closes our menu instead of falling through to the vanilla pause screen.
+        if (GuiManager.visible && key == GLFW.GLFW_KEY_ESCAPE) {
+            GuiManager.visible = false;
+            ci.cancel();
             return;
         }
 
