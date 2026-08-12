@@ -12,11 +12,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Sends a single one-off "not on ground" packet right before an eligible attack, so the server
- * processes that specific hit as airborne (crit). No restore packet afterward - the next tick's
- * normal movement packet already reports the real (grounded) state on its own, so a manual
- * restore is a redundant extra packet, and a second unsolicited movement-type packet in the same
- * tick is exactly what a packet-order check flags.
+ * Reports a tiny fake hop (position up 0.0625, then back down to the real position, both
+ * airborne) right before an eligible attack, so the server's own fallDistance tracker briefly
+ * reads nonzero exactly when the attack packet arrives - matching Meteor Client's reference
+ * implementation. A single onGround=false flag with no position change (the old approach) never
+ * touches fallDistance at all, so it alone can't satisfy vanilla's real crit condition.
  */
 @Mixin(ClientPlayerInteractionManager.class)
 public class CriticalsMixin {
@@ -27,6 +27,12 @@ public class CriticalsMixin {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (c == null || mc.player == null || mc.getNetworkHandler() == null) return;
         if (!c.shouldForceCrit(mc.player)) return;
-        mc.getNetworkHandler().getConnection().send(new PlayerMoveC2SPacket.OnGroundOnly(false, false));
+
+        double x = mc.player.getX();
+        double y = mc.player.getY();
+        double z = mc.player.getZ();
+        var connection = mc.getNetworkHandler().getConnection();
+        connection.send(new PlayerMoveC2SPacket.PositionAndOnGround(x, y + 0.0625, z, false, false));
+        connection.send(new PlayerMoveC2SPacket.PositionAndOnGround(x, y, z, false, false));
     }
 }

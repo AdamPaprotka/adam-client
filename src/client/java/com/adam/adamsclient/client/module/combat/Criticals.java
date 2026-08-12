@@ -5,12 +5,14 @@ import net.minecraft.client.network.ClientPlayerEntity;
 import net.minecraft.entity.effect.StatusEffects;
 
 /**
- * Vanilla awards critical damage when the attacker is server-side airborne (falling, not on
- * ground/climbing/swimming/vehicle/sprinting/blinded) at the moment the attack is processed - it's
- * the server's own tracked ground state that matters, not anything purely local. CriticalsMixin
- * spoofs a one-off "not on ground" packet immediately before an eligible attack (and restores it
- * right after) so a standing-still hit still gets the server to register a crit, without needing
- * to keep spoofing state across ticks the way NoFall/Fly do.
+ * Vanilla's real crit condition is "fallDistance > 0 AND not on ground" (plus the other gates
+ * below) - not just the onGround flag alone. fallDistance is the SERVER's own tracked value,
+ * incremented only when it observes an actual downward Y movement while airborne. A single
+ * onGround=false packet with an unchanged position never touches that value, so it alone can't
+ * satisfy the condition. CriticalsMixin instead reports a tiny fake hop (position up 0.0625,
+ * then immediately back down to the real position, both airborne) right before the attack -
+ * matching Meteor Client's reference implementation - so the server's own fallDistance briefly
+ * reads as nonzero exactly when the attack packet arrives.
  */
 public class Criticals extends Module {
     public static Criticals INSTANCE;
