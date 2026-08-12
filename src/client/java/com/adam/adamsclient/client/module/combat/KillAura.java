@@ -1,5 +1,6 @@
 package com.adam.adamsclient.client.module.combat;
 
+import com.adam.adamsclient.client.mixin.MinecraftClientAccessor;
 import com.adam.adamsclient.client.module.Module;
 import com.adam.adamsclient.client.module.setting.BoolSetting;
 import com.adam.adamsclient.client.module.setting.FloatSetting;
@@ -11,6 +12,7 @@ import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.Hand;
+import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
@@ -234,9 +236,19 @@ public class KillAura extends Module {
             mc.player.setPitch(savedPitch);
         } else {
             // Rotation (if any) already happened in onEarlyTick and is already reflected in
-            // this tick's normal movement packet - no extra send needed here.
-            mc.interactionManager.attackEntity(mc.player, target);
-            mc.player.swingHand(Hand.MAIN_HAND);
+            // this tick's normal movement packet. Rather than calling attackEntity directly,
+            // use vanilla's own doAttack() - the exact private method a real left-click runs,
+            // including whatever internal state (attackCooldown, etc.) a genuine click sets that
+            // a manual attackEntity+swingHand call skips. doAttack() only operates on whatever's
+            // currently under mc.crosshairTarget (it has no target parameter), so this only
+            // fires once vanilla's own raycast has actually caught up to point at the target -
+            // if rotation hasn't converged there yet, this tick is skipped rather than forcing
+            // an attack on an entity the client doesn't yet genuinely appear to be looking at.
+            if (!(mc.crosshairTarget instanceof EntityHitResult entityHit) || entityHit.getEntity() != target) {
+                attacking = false;
+                return;
+            }
+            ((MinecraftClientAccessor) mc).invokeDoAttack();
         }
         lastAttackTime = now;
     }
