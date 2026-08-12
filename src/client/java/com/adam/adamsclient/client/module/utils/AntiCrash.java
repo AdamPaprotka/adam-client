@@ -27,6 +27,14 @@ public class AntiCrash extends Module {
     private final FloatSetting maxTextNodes = new FloatSetting.Builder("Max Text Nodes")
             .defaultValue(4000f).min(200f).max(50000f).minSlider(500f).maxSlider(20000f).build();
 
+    /**
+     * A malformed/hostile packet that throws during decode or handling normally disconnects the
+     * client with a generic "Internal Exception" message. That's distinct from a real server kick
+     * (DisconnectS2CPacket), which this does not and cannot touch. Genuine IOExceptions (actual
+     * connection loss) still disconnect normally.
+     */
+    private final BoolSetting antiKick = new BoolSetting("Anti Kick", true);
+
     public AntiCrash() {
         super("AntiCrash", Category.UTILS);
         INSTANCE = this;
@@ -39,6 +47,7 @@ public class AntiCrash extends Module {
         addSetting(maxKnockback);
         addSetting(textGuard);
         addSetting(maxTextNodes);
+        addSetting(antiKick);
     }
 
     public boolean isParticleGuardEnabled() { return particleGuard.getValue(); }
@@ -53,4 +62,6 @@ public class AntiCrash extends Module {
 
     public boolean isTextGuardEnabled() { return textGuard.getValue(); }
     public int getMaxTextNodes() { return maxTextNodes.getValue().intValue(); }
+
+    public boolean isAntiKickEnabled() { return antiKick.getValue(); }
 }

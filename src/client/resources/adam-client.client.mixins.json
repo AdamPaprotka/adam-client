@@ -19,7 +19,8 @@
     "MinecraftClientAccessor",
     "AntiCrashMixin",
     "MouseRotationMixin",
-    "SilentRotationMixin"
+    "SilentRotationMixin",
+    "AntiKickMixin"
   ],
   "injectors": {
     "defaultRequire": 1
