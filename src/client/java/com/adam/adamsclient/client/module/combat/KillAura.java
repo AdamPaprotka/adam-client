@@ -27,8 +27,11 @@ public class KillAura extends Module {
             .defaultValue(0f).min(0f).minSlider(0f).maxSlider(1000f).build();
     private final BoolSetting noRotate      = new BoolSetting("NoRotate", false);
     private final BoolSetting smoothRotation = new BoolSetting("Smoothing", true);
+    // A believable "fast flick" default: fast enough to feel responsive, but still a real
+    // multi-tick turn the server sees you actually make toward the target before you hit it,
+    // rather than an instant snap (which is what triggers a rotation-consistency flag).
     private final FloatSetting rotationSpeed = new FloatSetting.Builder("Rotation Speed")
-            .defaultValue(30f).min(1f).max(180f).minSlider(5f).maxSlider(90f).build();
+            .defaultValue(55f).min(1f).max(180f).minSlider(5f).maxSlider(90f).build();
     private final BoolSetting snapHit       = new BoolSetting("Snap Hit", false);
 
     private final BoolSetting smart         = new BoolSetting("Smart", false);
