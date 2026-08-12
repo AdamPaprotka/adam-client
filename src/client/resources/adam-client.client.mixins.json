@@ -21,7 +21,8 @@
     "MouseRotationMixin",
     "MovementPacketMixin",
     "AntiKickMixin",
-    "CriticalsMixin"
+    "CriticalsMixin",
+    "KeyBindingAccessor"
   ],
   "injectors": {
     "defaultRequire": 1

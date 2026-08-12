@@ -1,6 +1,6 @@
 package com.adam.adamsclient.client.module.combat;
 
-import com.adam.adamsclient.client.mixin.MinecraftClientAccessor;
+import com.adam.adamsclient.client.mixin.KeyBindingAccessor;
 import com.adam.adamsclient.client.module.Module;
 import com.adam.adamsclient.client.module.setting.BoolSetting;
 import com.adam.adamsclient.client.module.setting.FloatSetting;
@@ -127,9 +127,18 @@ public class KillAura extends Module {
      * tick budget once sustained during combat - that's what was triggering a Timer flag.
      * Snap Hit deliberately does NOT rotate here - snapping every single tick a target exists
      * (rather than only at the moment of attack) would be a constant, obvious instant-lock.
+     *
+     * The non-Snap-Hit attack trigger also lives here, not in onTick - it doesn't call any
+     * attack method itself at all. It just bumps the attack key's press count, the same
+     * bookkeeping a genuine left-click produces, early enough in the tick that vanilla's own
+     * unmodified wasPressed()/doAttack() loop (which normally runs this same tick, right after
+     * this hook) picks it up and does literally everything else - cooldown state, crosshair
+     * lookup, the attack and swing packets - through its real, unmodified code path. This was
+     * the last remaining difference between this and a genuine click.
      */
     @Override
     public void onEarlyTick() {
+        attacking = false;
         MinecraftClient mc = MinecraftClient.getInstance();
         currentTarget = null;
         if (mc.player == null || mc.world == null) return;
@@ -168,6 +177,35 @@ public class KillAura extends Module {
         if (!snapHit.getValue() && !noRotate.getValue()) {
             rotateTo(mc, target, true);
         }
+
+        if (!snapHit.getValue() && mc.interactionManager != null) {
+            tryTriggerAttack(mc, target);
+        }
+    }
+
+    /** Simulates a real left-click by bumping the attack key's press count - see onEarlyTick doc. */
+    private void tryTriggerAttack(MinecraftClient mc, LivingEntity target) {
+        long now = System.currentTimeMillis();
+        if (now - targetAcquiredTime < currentReactionDelay) return;
+
+        long effectiveDelay = autoDelay.getValue()
+                ? computeAutoDelay(mc, target)
+                : (long)(float) delay.getValue();
+        if (now - lastAttackTime < effectiveDelay) return;
+
+        if (ticksSinceReady++ < currentRandomTickDelay) return;
+        ticksSinceReady = 0;
+        currentRandomTickDelay = (int) (Math.random() * (randomTicks.getValue() + 1));
+
+        // doAttack() only ever operates on whatever's currently under mc.crosshairTarget - only
+        // simulate the click once vanilla's own raycast has actually caught up to the target,
+        // rather than forcing an attack on an entity the client doesn't yet appear to be facing.
+        if (!(mc.crosshairTarget instanceof EntityHitResult entityHit) || entityHit.getEntity() != target) return;
+
+        KeyBindingAccessor attackKey = (KeyBindingAccessor) mc.options.attackKey;
+        attackKey.setTimesPressed(attackKey.getTimesPressed() + 1);
+        attacking = true;
+        lastAttackTime = now;
     }
 
     private LivingEntity findTarget(MinecraftClient mc) {
@@ -199,9 +237,10 @@ public class KillAura extends Module {
         return target;
     }
 
+    /** Snap Hit only - the non-Snap-Hit attack trigger lives in onEarlyTick, see its class doc. */
     @Override
     public void onTick() {
-        attacking = false;
+        if (!snapHit.getValue()) return;
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null || mc.interactionManager == null) return;
 
@@ -222,34 +261,17 @@ public class KillAura extends Module {
 
         attacking = true;
 
-        if (snapHit.getValue()) {
-            // Snap Hit's rotation happens here, not in onEarlyTick, so the snap only ever occurs
-            // on the actual attack tick - flushLook still exists to keep packet order correct
-            // for this specific mode, at the cost of the extra-packet tradeoff explained above.
-            float savedYaw = mc.player.getYaw();
-            float savedPitch = mc.player.getPitch();
-            rotateTo(mc, target, true);
-            flushLook(mc);
-            mc.interactionManager.attackEntity(mc.player, target);
-            mc.player.swingHand(Hand.MAIN_HAND);
-            mc.player.setYaw(savedYaw);
-            mc.player.setPitch(savedPitch);
-        } else {
-            // Rotation (if any) already happened in onEarlyTick and is already reflected in
-            // this tick's normal movement packet. Rather than calling attackEntity directly,
-            // use vanilla's own doAttack() - the exact private method a real left-click runs,
-            // including whatever internal state (attackCooldown, etc.) a genuine click sets that
-            // a manual attackEntity+swingHand call skips. doAttack() only operates on whatever's
-            // currently under mc.crosshairTarget (it has no target parameter), so this only
-            // fires once vanilla's own raycast has actually caught up to point at the target -
-            // if rotation hasn't converged there yet, this tick is skipped rather than forcing
-            // an attack on an entity the client doesn't yet genuinely appear to be looking at.
-            if (!(mc.crosshairTarget instanceof EntityHitResult entityHit) || entityHit.getEntity() != target) {
-                attacking = false;
-                return;
-            }
-            ((MinecraftClientAccessor) mc).invokeDoAttack();
-        }
+        // Snap Hit's rotation happens here, not in onEarlyTick, so the snap only ever occurs
+        // on the actual attack tick - flushLook still exists to keep packet order correct
+        // for this specific mode, at the cost of the extra-packet tradeoff explained above.
+        float savedYaw = mc.player.getYaw();
+        float savedPitch = mc.player.getPitch();
+        rotateTo(mc, target, true);
+        flushLook(mc);
+        mc.interactionManager.attackEntity(mc.player, target);
+        mc.player.swingHand(Hand.MAIN_HAND);
+        mc.player.setYaw(savedYaw);
+        mc.player.setPitch(savedPitch);
         lastAttackTime = now;
     }
 

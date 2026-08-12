@@ -1,5 +1,6 @@
 package com.adam.adamsclient.client.module.combat;
 
+import com.adam.adamsclient.client.mixin.KeyBindingAccessor;
 import com.adam.adamsclient.client.module.Module;
 import com.adam.adamsclient.client.module.setting.BoolSetting;
 import com.adam.adamsclient.client.module.setting.FloatSetting;
@@ -8,14 +9,15 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.Hand;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 
 /**
  * Attacks whatever's already under vanilla's own crosshair target (mc.crosshairTarget) - no aim
- * assist, no rotation touched at all. Just automates the click for whatever you're already
- * legitimately looking at, same reach/hitbox vanilla itself already validated for that target.
+ * assist, no rotation touched at all. Rather than calling attackEntity directly, this simulates
+ * the attack key actually being pressed (runs on the early tick hook, before vanilla's own
+ * wasPressed()/doAttack() loop consumes queued presses this same tick), so the resulting attack
+ * runs through the exact same code path, timing, and side effects a genuine left-click produces.
  */
 public class TriggerBot extends Module {
     private final BoolSetting players = new BoolSetting("Players", true);
@@ -40,7 +42,7 @@ public class TriggerBot extends Module {
     }
 
     @Override
-    public void onTick() {
+    public void onEarlyTick() {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.interactionManager == null) return;
 
@@ -64,8 +66,8 @@ public class TriggerBot extends Module {
         ticksSinceReady = 0;
         currentRandomTickDelay = (int) (Math.random() * (randomTicks.getValue() + 1));
 
-        mc.interactionManager.attackEntity(mc.player, target);
-        mc.player.swingHand(Hand.MAIN_HAND);
+        KeyBindingAccessor attackKey = (KeyBindingAccessor) mc.options.attackKey;
+        attackKey.setTimesPressed(attackKey.getTimesPressed() + 1);
         lastAttackTime = now;
     }
 }
