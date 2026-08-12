@@ -33,7 +33,6 @@ public class KillAura extends Module {
     private final FloatSetting delay = new FloatSetting.Builder("Delay")
             .defaultValue(110f).min(0f).minSlider(0f).maxSlider(1000f).build();
     private final BoolSetting noRotate      = new BoolSetting("NoRotate", false);
-    private final BoolSetting smoothRotation = new BoolSetting("Smoothing", true);
     // A believable "fast flick" default: fast enough to feel responsive, but still a real
     // multi-tick turn the server sees you actually make toward the target before you hit it,
     // rather than an instant snap (which is what triggers a rotation-consistency flag).
@@ -86,7 +85,6 @@ public class KillAura extends Module {
         addSetting(animals);
         addSetting(delay);
         addSetting(noRotate);
-        addSetting(smoothRotation);
         addSetting(rotationSpeed);
         addSetting(snapHit);
         addSetting(smart);
@@ -143,8 +141,13 @@ public class KillAura extends Module {
 
         if (smart.getValue()) applySmart(mc, target);
 
+        // Always step gradually here regardless of the Smoothing setting - this runs every
+        // single tick a target exists, so a true instant snap here is a permanent lock onto the
+        // target's exact angle every tick, not a one-off snap. That's strictly worse than Snap
+        // Hit's attack-only snap and is exactly what was still tripping Post. True instant
+        // rotation is reserved for Snap Hit's attack-moment-only path below.
         if (!snapHit.getValue() && !noRotate.getValue()) {
-            rotateTo(mc, target, smoothRotation.getValue());
+            rotateTo(mc, target, true);
         }
     }
 
