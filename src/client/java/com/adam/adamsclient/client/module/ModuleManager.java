@@ -103,6 +103,12 @@ public class ModuleManager {
         return modules.stream().anyMatch(m -> m.getName().equalsIgnoreCase(name) && m.isEnabled());
     }
 
+    public static void onEarlyTick() {
+        for (Module module : modules) {
+            if (module.isEnabled()) module.onEarlyTick();
+        }
+    }
+
     public static void onTick() {
         RotationManager.tick();
         for (Module module : modules) {

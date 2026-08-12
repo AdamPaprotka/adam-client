@@ -66,6 +66,9 @@ public class KillAura extends Module {
     private int ticksSinceReady = 0;
     private int currentRandomTickDelay = 0;
 
+    /** Target picked in onEarlyTick, consumed by onTick - see class doc for why the split exists. */
+    private LivingEntity currentTarget = null;
+
     /** Last rotation actually sent via flushLook - resending the exact same values is a dead giveaway. */
     private boolean hasFlushedLook = false;
     private float lastFlushedYaw = 0f;
@@ -101,14 +104,51 @@ public class KillAura extends Module {
     protected void onDisable() {
         attacking = false;
         hasFlushedLook = false;
+        currentTarget = null;
     }
 
+    /**
+     * Finds the target and rotates BEFORE the tick's normal movement packet is sent (this runs
+     * on START_CLIENT_TICK), so smoothed rotation lands in that already-happening packet instead
+     * of needing an extra explicit send later. Sending an extra packet per attack, even a
+     * correctly-ordered one, still raises the average packet rate above vanilla's fixed one-per-
+     * tick budget once sustained during combat - that's what was triggering a Timer flag.
+     * Snap Hit deliberately does NOT rotate here - snapping every single tick a target exists
+     * (rather than only at the moment of attack) would be a constant, obvious instant-lock.
+     */
     @Override
-    public void onTick() {
-        attacking = false;
+    public void onEarlyTick() {
         MinecraftClient mc = MinecraftClient.getInstance();
-        if (mc.player == null || mc.world == null || mc.interactionManager == null) return;
+        currentTarget = null;
+        if (mc.player == null || mc.world == null) return;
 
+        LivingEntity target = findTarget(mc);
+        currentTarget = target;
+        if (target == null) return;
+
+        if (tp.getValue()) {
+            double dist = Math.sqrt(mc.player.squaredDistanceTo(target));
+            if (dist > range.getValue()) {
+                double dx = target.getX() - mc.player.getX();
+                double dz = target.getZ() - mc.player.getZ();
+                double len = Math.sqrt(dx * dx + dz * dz);
+                double offset = Math.max(0, range.getValue() - 0.5);
+                mc.player.setPosition(
+                    target.getX() - dx / len * offset,
+                    target.getY(),
+                    target.getZ() - dz / len * offset
+                );
+            }
+        }
+
+        if (smart.getValue()) applySmart(mc, target);
+
+        if (!snapHit.getValue() && !noRotate.getValue()) {
+            rotateTo(mc, target, smoothRotation.getValue());
+        }
+    }
+
+    private LivingEntity findTarget(MinecraftClient mc) {
         float r = range.getValue();
         float scanR = tp.getValue() ? Math.max(r, tpRange.getValue()) : r;
         LivingEntity target = null;
@@ -134,26 +174,17 @@ public class KillAura extends Module {
             closestDist = dist;
             target = living;
         }
+        return target;
+    }
 
-        if (target == null) return;
+    @Override
+    public void onTick() {
+        attacking = false;
+        MinecraftClient mc = MinecraftClient.getInstance();
+        if (mc.player == null || mc.world == null || mc.interactionManager == null) return;
 
-        // TP to attack range if target is too far away
-        if (tp.getValue()) {
-            double dist = Math.sqrt(mc.player.squaredDistanceTo(target));
-            if (dist > r) {
-                double dx = target.getX() - mc.player.getX();
-                double dz = target.getZ() - mc.player.getZ();
-                double len = Math.sqrt(dx * dx + dz * dz);
-                double offset = Math.max(0, r - 0.5);
-                mc.player.setPosition(
-                    target.getX() - dx / len * offset,
-                    target.getY(),
-                    target.getZ() - dz / len * offset
-                );
-            }
-        }
-
-        if (smart.getValue()) applySmart(mc, target);
+        LivingEntity target = currentTarget;
+        if (target == null || target.isRemoved() || target.isDead() || target.getHealth() <= 0) return;
 
         long now = System.currentTimeMillis();
         long effectiveDelay = autoDelay.getValue()
@@ -168,13 +199,9 @@ public class KillAura extends Module {
         attacking = true;
 
         if (snapHit.getValue()) {
-            // The natural per-tick movement packet has already gone out by the time this
-            // module runs, so without an explicit flush here the server wouldn't see any
-            // rotation update matching the target until next tick - after the attack packet.
-            // That ordering (attack before rotation) is exactly a "Post" flag, regardless of
-            // whether the rotation itself is hidden or shown. Flushing a real look packet here,
-            // right before attacking, keeps order correct. Reverting after still matters so the
-            // snap doesn't skew movement-input-to-velocity direction on later ticks.
+            // Snap Hit's rotation happens here, not in onEarlyTick, so the snap only ever occurs
+            // on the actual attack tick - flushLook still exists to keep packet order correct
+            // for this specific mode, at the cost of the extra-packet tradeoff explained above.
             float savedYaw = mc.player.getYaw();
             float savedPitch = mc.player.getPitch();
             rotateTo(mc, target, true);
@@ -184,10 +211,8 @@ public class KillAura extends Module {
             mc.player.setYaw(savedYaw);
             mc.player.setPitch(savedPitch);
         } else {
-            if (!noRotate.getValue()) {
-                rotateTo(mc, target, smoothRotation.getValue());
-                flushLook(mc);
-            }
+            // Rotation (if any) already happened in onEarlyTick and is already reflected in
+            // this tick's normal movement packet - no extra send needed here.
             mc.interactionManager.attackEntity(mc.player, target);
             mc.player.swingHand(Hand.MAIN_HAND);
         }

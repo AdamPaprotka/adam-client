@@ -49,6 +49,8 @@ public class AdamClientClient implements ClientModInitializer {
             });
         });
 
+        ClientTickEvents.START_CLIENT_TICK.register(client -> ModuleManager.onEarlyTick());
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openGui.wasPressed()) {
                 GuiManager.visible = !GuiManager.visible;

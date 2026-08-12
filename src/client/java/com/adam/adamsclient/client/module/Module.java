@@ -41,6 +41,10 @@ public abstract class Module {
 
     protected void onEnable() {}
     protected void onDisable() {}
+    /** Runs at the very start of the client tick, before player movement/packet-send - use this
+     * for anything (like rotation) that needs to land in the tick's normal outgoing packet
+     * instead of requiring an extra explicit send afterward. */
+    public void onEarlyTick() {}
     public void onTick() {}
     public void onRender(MatrixStack matrices, float tickDelta) {}
 }
