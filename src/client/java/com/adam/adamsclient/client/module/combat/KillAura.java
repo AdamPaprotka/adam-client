@@ -19,9 +19,12 @@ public class KillAura extends Module {
     public static KillAura INSTANCE;
 
     // Vanilla's entity-attack reach attribute defaults to 3.0 - 4.5 is the *block* interaction
-    // reach, not entity. Attacking near the old default routinely exceeded legitimate reach.
+    // reach, not entity. 3.0 is the exact legal boundary with zero margin, though: against a
+    // moving target, ordinary latency between the client's rendered position for them and what
+    // the server currently has pushes attacks right at that edge over the server's own limit.
+    // 2.7 leaves enough room to absorb that jitter without meaningfully changing effective reach.
     private final FloatSetting range = new FloatSetting.Builder("Range")
-            .defaultValue(3f).min(0f).max(10f).minSlider(0f).maxSlider(6f).build();
+            .defaultValue(2.7f).min(0f).max(10f).minSlider(0f).maxSlider(6f).build();
     private final BoolSetting players       = new BoolSetting("Players", true);
     private final BoolSetting mobs          = new BoolSetting("Mobs", true);
     private final BoolSetting animals       = new BoolSetting("Animals", false);
