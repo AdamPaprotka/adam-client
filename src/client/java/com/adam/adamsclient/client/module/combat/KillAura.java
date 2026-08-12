@@ -75,6 +75,11 @@ public class KillAura extends Module {
     private int ticksSinceReady = 0;
     private int currentRandomTickDelay = 0;
 
+    /** True only while Smart is actually holding movement keys - releaseSmartKeys must only fire
+     * on the tick that flips false, otherwise it fights the player's own real WASD input every
+     * single tick a target exists, even with Smart off. */
+    private boolean smartKeysHeld = false;
+
     /** Target picked in onEarlyTick, consumed by onTick - see class doc for why the split exists. */
     private LivingEntity currentTarget = null;
     private LivingEntity lastAcquiredTarget = null;
@@ -349,13 +354,18 @@ public class KillAura extends Module {
         mc.options.backKey.setPressed(forward < -epsilon);
         mc.options.leftKey.setPressed(strafe > epsilon);
         mc.options.rightKey.setPressed(strafe < -epsilon);
+        smartKeysHeld = true;
     }
 
+    /** Only touches the keys if Smart itself was the one holding them - otherwise this would
+     * fight the player's own real WASD input every tick Smart isn't active. */
     private void releaseSmartKeys(MinecraftClient mc) {
+        if (!smartKeysHeld) return;
         mc.options.forwardKey.setPressed(false);
         mc.options.backKey.setPressed(false);
         mc.options.leftKey.setPressed(false);
         mc.options.rightKey.setPressed(false);
+        smartKeysHeld = false;
     }
 
     /** True if stepping to (x,z) would run into a wall or over a 3-block hole. */

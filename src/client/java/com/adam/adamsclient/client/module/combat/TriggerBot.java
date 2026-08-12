@@ -23,10 +23,14 @@ public class TriggerBot extends Module {
     private final BoolSetting players = new BoolSetting("Players", true);
     private final BoolSetting mobs    = new BoolSetting("Mobs", true);
     private final BoolSetting animals = new BoolSetting("Animals", false);
+    // A narrow interval range (the old 110-210ms) held perfectly steady over many consecutive
+    // clicks reads as statistically regular over time even though each individual gap looks
+    // human-sized - that's what an autoclicker check flags on a long AFK-click session. A wider
+    // spread (90-390ms here) breaks that regularity up without any single click looking unusual.
     private final FloatSetting delay  = new FloatSetting.Builder("Delay")
-            .defaultValue(110f).min(0f).minSlider(0f).maxSlider(1000f).build();
+            .defaultValue(90f).min(0f).minSlider(0f).maxSlider(1000f).build();
     private final FloatSetting randomTicks = new FloatSetting.Builder("Random Ticks")
-            .defaultValue(2f).min(0f).max(40f).minSlider(0f).maxSlider(20f).build();
+            .defaultValue(6f).min(0f).max(40f).minSlider(0f).maxSlider(20f).build();
 
     private long lastAttackTime = 0;
     private int ticksSinceReady = 0;
