@@ -1,8 +1,6 @@
 package com.adam.adamsclient.client;
 
 import net.minecraft.client.MinecraftClient;
-import net.minecraft.network.packet.Packet;
-import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.math.MathHelper;
 
 /**
@@ -49,17 +47,5 @@ public final class RotationManager {
             realYaw = mc.player.getYaw();
             realPitch = mc.player.getPitch();
         }
-    }
-
-    /** Returns a copy of the packet with its yaw/pitch swapped for the real rotation, or null if not applicable. */
-    public static Packet<?> rewrite(PlayerMoveC2SPacket packet) {
-        if (packet instanceof PlayerMoveC2SPacket.Full f) {
-            return new PlayerMoveC2SPacket.Full(
-                    f.getX(0), f.getY(0), f.getZ(0), realYaw, realPitch, f.isOnGround(), f.horizontalCollision());
-        }
-        if (packet instanceof PlayerMoveC2SPacket.LookAndOnGround l) {
-            return new PlayerMoveC2SPacket.LookAndOnGround(realYaw, realPitch, l.isOnGround(), l.horizontalCollision());
-        }
-        return null;
     }
 }

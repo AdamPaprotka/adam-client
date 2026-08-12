@@ -19,7 +19,7 @@
     "MinecraftClientAccessor",
     "AntiCrashMixin",
     "MouseRotationMixin",
-    "SilentRotationMixin",
+    "MovementPacketMixin",
     "AntiKickMixin"
   ],
   "injectors": {
