@@ -6,6 +6,7 @@ import com.adam.adamsclient.client.module.setting.FloatSetting;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.LivingEntity;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.Box;
 import net.minecraft.util.math.MathHelper;
@@ -73,12 +74,22 @@ public class HitBox extends Module {
         }
     }
 
-    /** Snaps onto the target, attacks, then restores the player's real rotation. */
+    /**
+     * Snaps onto the target, attacks, then restores the player's real rotation. Flushes an
+     * explicit look packet before the attack packet - the natural per-tick movement packet has
+     * already gone out by the time this runs, so without an explicit flush the server wouldn't
+     * see any rotation update matching the target until next tick, after the attack packet
+     * (exactly the ordering an anticheat's Post-style check flags).
+     */
     private void performHit(MinecraftClient mc, LivingEntity target) {
         float savedYaw = mc.player.getYaw();
         float savedPitch = mc.player.getPitch();
 
         rotateTo(mc, target);
+        if (mc.getNetworkHandler() != null) {
+            mc.getNetworkHandler().getConnection().send(new PlayerMoveC2SPacket.LookAndOnGround(
+                    mc.player.getYaw(), mc.player.getPitch(), mc.player.isOnGround(), false));
+        }
         mc.interactionManager.attackEntity(mc.player, target);
         mc.player.swingHand(Hand.MAIN_HAND);
 

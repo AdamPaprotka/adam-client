@@ -6,12 +6,15 @@ import com.adam.adamsclient.client.module.setting.FloatSetting;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.util.math.Vec3d;
+import net.minecraft.util.math.MathHelper;
 
 /**
  * Makes real, server-synced movement erratic near other players so naive KillAura
  * implementations (fixed-timer attacks, distance checked once per swing) whiff more often.
  * Can't reach into another client's code — this only changes how hard you actually are to hit.
+ * Steers by holding real WASD keys (like KillAura's Smart mode) rather than setting velocity
+ * directly - a raw velocity override doesn't match any real key input, which is exactly what a
+ * movement-simulation check (re-deriving expected physics from your actual input) catches.
  */
 public class AntiAntiKillaura extends Module {
     private final FloatSetting detectRange = new FloatSetting.Builder("Detect Range")
@@ -34,6 +37,9 @@ public class AntiAntiKillaura extends Module {
     private int jukeTimer = 0;
     private double jukeAngleOffset = 0;
     private int tickCounter = 0;
+    /** True only while this module is actually holding movement keys - releaseKeys must only act
+     * when this is true, otherwise it fights the player's own real WASD input every tick. */
+    private boolean keysHeld = false;
 
     public AntiAntiKillaura() {
         super("AntiAntiKillaura", Category.COMBAT);
@@ -51,10 +57,10 @@ public class AntiAntiKillaura extends Module {
     public void onTick() {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null || mc.world == null) return;
-        if (!juke.getValue() && !rangeBait.getValue()) return;
+        if (!juke.getValue() && !rangeBait.getValue()) { releaseKeys(mc); return; }
 
         PlayerEntity nearest = findNearestPlayer(mc);
-        if (nearest == null) return;
+        if (nearest == null) { releaseKeys(mc); return; }
 
         tickCounter++;
 
@@ -82,11 +88,37 @@ public class AntiAntiKillaura extends Module {
         double dz = goalZ - mc.player.getZ();
         double d = Math.sqrt(dx * dx + dz * dz);
 
-        Vec3d vel = mc.player.getVelocity();
-        if (d > 0.05) {
-            double spd = Math.min(jukeStrength.getValue(), d * 0.5);
-            mc.player.setVelocity(dx / d * spd, vel.y, dz / d * spd);
+        if (d <= 0.05) {
+            releaseKeys(mc);
+            return;
         }
+
+        float yawRad = mc.player.getYaw() * ((float) Math.PI / 180F);
+        float sinYaw = MathHelper.sin(yawRad);
+        float cosYaw = MathHelper.cos(yawRad);
+        double strafe  = dx * cosYaw + dz * sinYaw;
+        double forward = -dx * sinYaw + dz * cosYaw;
+
+        double epsilon = 0.05;
+        mc.options.forwardKey.setPressed(forward > epsilon);
+        mc.options.backKey.setPressed(forward < -epsilon);
+        mc.options.leftKey.setPressed(strafe > epsilon);
+        mc.options.rightKey.setPressed(strafe < -epsilon);
+        keysHeld = true;
+    }
+
+    private void releaseKeys(MinecraftClient mc) {
+        if (!keysHeld) return;
+        mc.options.forwardKey.setPressed(false);
+        mc.options.backKey.setPressed(false);
+        mc.options.leftKey.setPressed(false);
+        mc.options.rightKey.setPressed(false);
+        keysHeld = false;
+    }
+
+    @Override
+    protected void onDisable() {
+        releaseKeys(MinecraftClient.getInstance());
     }
 
     private PlayerEntity findNearestPlayer(MinecraftClient mc) {
