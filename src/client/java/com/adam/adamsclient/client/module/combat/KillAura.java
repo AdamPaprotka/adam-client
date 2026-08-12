@@ -1,6 +1,5 @@
 package com.adam.adamsclient.client.module.combat;
 
-import com.adam.adamsclient.client.RotationManager;
 import com.adam.adamsclient.client.module.Module;
 import com.adam.adamsclient.client.module.setting.BoolSetting;
 import com.adam.adamsclient.client.module.setting.FloatSetting;
@@ -10,6 +9,7 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.passive.AnimalEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
@@ -18,13 +18,17 @@ import net.minecraft.util.math.Vec3d;
 public class KillAura extends Module {
     public static KillAura INSTANCE;
 
+    // Vanilla's entity-attack reach attribute defaults to 3.0 - 4.5 is the *block* interaction
+    // reach, not entity. Attacking near the old default routinely exceeded legitimate reach.
     private final FloatSetting range = new FloatSetting.Builder("Range")
-            .defaultValue(4.5f).min(0f).max(10f).minSlider(0f).maxSlider(6f).build();
+            .defaultValue(3f).min(0f).max(10f).minSlider(0f).maxSlider(6f).build();
     private final BoolSetting players       = new BoolSetting("Players", true);
     private final BoolSetting mobs          = new BoolSetting("Mobs", true);
     private final BoolSetting animals       = new BoolSetting("Animals", false);
+    // 0ms means attacking every single client tick (20/sec) - far past any human click rate,
+    // which is exactly what a multi-actions/rate check catches. ~9 CPS is a believable default.
     private final FloatSetting delay = new FloatSetting.Builder("Delay")
-            .defaultValue(0f).min(0f).minSlider(0f).maxSlider(1000f).build();
+            .defaultValue(110f).min(0f).minSlider(0f).maxSlider(1000f).build();
     private final BoolSetting noRotate      = new BoolSetting("NoRotate", false);
     private final BoolSetting smoothRotation = new BoolSetting("Smoothing", true);
     // A believable "fast flick" default: fast enough to feel responsive, but still a real
@@ -53,7 +57,7 @@ public class KillAura extends Module {
 
     /** Extra random tick delay before attacking, like FakeLag's random extra but tick-based. */
     private final FloatSetting randomTicks  = new FloatSetting.Builder("Random Ticks")
-            .defaultValue(0f).min(0f).max(40f).minSlider(0f).maxSlider(20f).build();
+            .defaultValue(2f).min(0f).max(40f).minSlider(0f).maxSlider(20f).build();
 
     private long lastAttackTime = 0;
     private int ticksSinceReady = 0;
@@ -88,7 +92,6 @@ public class KillAura extends Module {
     @Override
     protected void onDisable() {
         attacking = false;
-        RotationManager.killAuraRequest = false;
     }
 
     @Override
@@ -123,16 +126,7 @@ public class KillAura extends Module {
             target = living;
         }
 
-        if (target == null) {
-            RotationManager.killAuraRequest = false;
-            return;
-        }
-
-        // Keep the snap hidden from the server for as long as we're tracking a target, not
-        // just on the attack tick itself - the anticheat flag fires on the rotation being
-        // inconsistent with the player's own mouse movement while it's snapped, and that
-        // window covers every tick the snap is held, not only the moment of the hit.
-        RotationManager.killAuraRequest = snapHit.getValue();
+        if (target == null) return;
 
         // TP to attack range if target is too far away
         if (tp.getValue()) {
@@ -165,27 +159,37 @@ public class KillAura extends Module {
         attacking = true;
 
         if (snapHit.getValue()) {
-            // Rotation packets are hidden via RotationManager.killAuraRequest the whole time a
-            // target is tracked, so the server never sees this snap (or a revert) in the first
-            // place - reverting locally right after the attack matters for a different reason:
-            // it keeps mc.player's yaw consistent with the real (reported) rotation for every
-            // following tick's movement-input-to-velocity conversion. Leaving it snapped would
-            // silently skew actual walking direction away from the reported look every tick
-            // movement keys are held, which is a mismatch visible purely from position deltas
-            // and reported rotation - independent of anything sent in the rotation packets.
+            // The natural per-tick movement packet has already gone out by the time this
+            // module runs, so without an explicit flush here the server wouldn't see any
+            // rotation update matching the target until next tick - after the attack packet.
+            // That ordering (attack before rotation) is exactly a "Post" flag, regardless of
+            // whether the rotation itself is hidden or shown. Flushing a real look packet here,
+            // right before attacking, keeps order correct. Reverting after still matters so the
+            // snap doesn't skew movement-input-to-velocity direction on later ticks.
             float savedYaw = mc.player.getYaw();
             float savedPitch = mc.player.getPitch();
             rotateTo(mc, target, true);
+            flushLook(mc);
             mc.interactionManager.attackEntity(mc.player, target);
             mc.player.swingHand(Hand.MAIN_HAND);
             mc.player.setYaw(savedYaw);
             mc.player.setPitch(savedPitch);
         } else {
-            if (!noRotate.getValue()) rotateTo(mc, target, smoothRotation.getValue());
+            if (!noRotate.getValue()) {
+                rotateTo(mc, target, smoothRotation.getValue());
+                flushLook(mc);
+            }
             mc.interactionManager.attackEntity(mc.player, target);
             mc.player.swingHand(Hand.MAIN_HAND);
         }
         lastAttackTime = now;
+    }
+
+    /** Sends the current real rotation immediately, so it reaches the server before the attack packet does. */
+    private void flushLook(MinecraftClient mc) {
+        if (mc.getNetworkHandler() == null) return;
+        mc.getNetworkHandler().getConnection().send(new PlayerMoveC2SPacket.LookAndOnGround(
+                mc.player.getYaw(), mc.player.getPitch(), mc.player.isOnGround(), false));
     }
 
     /** Strafe in a circle around the target while maintaining keepDistance. */
