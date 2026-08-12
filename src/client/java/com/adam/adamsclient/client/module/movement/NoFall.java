@@ -6,19 +6,18 @@ import com.adam.adamsclient.client.module.setting.FloatSetting;
 import net.minecraft.client.MinecraftClient;
 
 /**
- * A single "on ground" packet sent right as fall distance crosses the threshold doesn't stop
- * damage - the server derives fall damage from its own tracked fallDistance (built from real Y
- * deltas across every movement packet), so a late one-off packet just triggers the landing check
- * early instead of preventing it. Spoofing onGround=true on every outgoing movement packet for the
- * whole fall instead stops the server's fallDistance from ever accumulating in the first place.
+ * Triggers on downward velocity (matching Meteor Client's reference implementation) rather than
+ * accumulated fallDistance crossing a threshold, and runs on the early tick hook so the spoofed
+ * ground state is already reflected in the SAME tick's normal movement packet instead of lagging
+ * a tick behind by updating after it was already sent.
  */
 public class NoFall extends Module {
-    private final FloatSetting threshold = new FloatSetting.Builder("Threshold")
-            .defaultValue(3f).min(1f).max(20f).minSlider(1f).maxSlider(10f).build();
+    private final FloatSetting velocityThreshold = new FloatSetting.Builder("Velocity Threshold")
+            .defaultValue(0.5f).min(0.1f).max(2f).minSlider(0.2f).maxSlider(1f).build();
 
     public NoFall() {
         super("NoFall", Category.MOVEMENT);
-        addSetting(threshold);
+        addSetting(velocityThreshold);
     }
 
     @Override
@@ -27,12 +26,13 @@ public class NoFall extends Module {
     }
 
     @Override
-    public void onTick() {
+    public void onEarlyTick() {
         MinecraftClient mc = MinecraftClient.getInstance();
         if (mc.player == null) {
             GroundSpoofManager.noFallRequest = false;
             return;
         }
-        GroundSpoofManager.noFallRequest = !mc.player.isOnGround() && mc.player.fallDistance >= threshold.getValue();
+        GroundSpoofManager.noFallRequest = !mc.player.isOnGround()
+                && mc.player.getVelocity().y < -velocityThreshold.getValue();
     }
 }
