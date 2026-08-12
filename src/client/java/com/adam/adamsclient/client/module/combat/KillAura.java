@@ -61,12 +61,22 @@ public class KillAura extends Module {
     private final FloatSetting randomTicks  = new FloatSetting.Builder("Random Ticks")
             .defaultValue(2f).min(0f).max(40f).minSlider(0f).maxSlider(20f).build();
 
+    // Delay is time BETWEEN attacks; this is different - time from a target FIRST becoming
+    // targetable to the FIRST hit on it. Instantly hitting the moment a target appears is a near-
+    // zero reaction time, which is exactly what a transaction-timestamp-based check is built to
+    // catch (see class doc on onEarlyTick for why plain packet-order tricks can't address this).
+    private final FloatSetting reactionDelay = new FloatSetting.Builder("Reaction Delay")
+            .defaultValue(120f).min(0f).max(500f).minSlider(0f).maxSlider(400f).build();
+
     private long lastAttackTime = 0;
     private int ticksSinceReady = 0;
     private int currentRandomTickDelay = 0;
 
     /** Target picked in onEarlyTick, consumed by onTick - see class doc for why the split exists. */
     private LivingEntity currentTarget = null;
+    private LivingEntity lastAcquiredTarget = null;
+    private long targetAcquiredTime = 0;
+    private long currentReactionDelay = 0;
 
     /** Last rotation actually sent via flushLook - resending the exact same values is a dead giveaway. */
     private boolean hasFlushedLook = false;
@@ -96,6 +106,7 @@ public class KillAura extends Module {
         addSetting(tpRange);
         addSetting(autoDelay);
         addSetting(randomTicks);
+        addSetting(reactionDelay);
     }
 
     @Override
@@ -103,6 +114,7 @@ public class KillAura extends Module {
         attacking = false;
         hasFlushedLook = false;
         currentTarget = null;
+        lastAcquiredTarget = null;
     }
 
     /**
@@ -122,6 +134,11 @@ public class KillAura extends Module {
 
         LivingEntity target = findTarget(mc);
         currentTarget = target;
+        if (target != lastAcquiredTarget) {
+            lastAcquiredTarget = target;
+            targetAcquiredTime = System.currentTimeMillis();
+            currentReactionDelay = (long) (float) reactionDelay.getValue() + (long) (Math.random() * 100);
+        }
         if (target == null) return;
 
         if (tp.getValue()) {
@@ -190,6 +207,8 @@ public class KillAura extends Module {
         if (target == null || target.isRemoved() || target.isDead() || target.getHealth() <= 0) return;
 
         long now = System.currentTimeMillis();
+        if (now - targetAcquiredTime < currentReactionDelay) return;
+
         long effectiveDelay = autoDelay.getValue()
                 ? computeAutoDelay(mc, target)
                 : (long)(float) delay.getValue();
