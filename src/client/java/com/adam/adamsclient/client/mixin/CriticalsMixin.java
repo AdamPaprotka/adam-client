@@ -12,10 +12,11 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 /**
- * Sends a one-off "not on ground" packet right before an eligible attack and restores it right
- * after, so the server processes that specific hit as airborne (crit) without needing to keep
- * spoofing across ticks - unlike NoFall/Fly, only the instant the attack packet is processed
- * matters here, not any sustained state.
+ * Sends a single one-off "not on ground" packet right before an eligible attack, so the server
+ * processes that specific hit as airborne (crit). No restore packet afterward - the next tick's
+ * normal movement packet already reports the real (grounded) state on its own, so a manual
+ * restore is a redundant extra packet, and a second unsolicited movement-type packet in the same
+ * tick is exactly what a packet-order check flags.
  */
 @Mixin(ClientPlayerInteractionManager.class)
 public class CriticalsMixin {
@@ -27,15 +28,5 @@ public class CriticalsMixin {
         if (c == null || mc.player == null || mc.getNetworkHandler() == null) return;
         if (!c.shouldForceCrit(mc.player)) return;
         mc.getNetworkHandler().getConnection().send(new PlayerMoveC2SPacket.OnGroundOnly(false, false));
-    }
-
-    @Inject(method = "attackEntity", at = @At("RETURN"))
-    private void afterAttack(PlayerEntity player, Entity target, CallbackInfo ci) {
-        Criticals c = Criticals.INSTANCE;
-        MinecraftClient mc = MinecraftClient.getInstance();
-        if (c == null || mc.player == null || mc.getNetworkHandler() == null) return;
-        if (mc.player.isOnGround()) {
-            mc.getNetworkHandler().getConnection().send(new PlayerMoveC2SPacket.OnGroundOnly(true, false));
-        }
     }
 }
