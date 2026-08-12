@@ -8,8 +8,11 @@ public class Velocity extends Module {
 
     private final FloatSetting horizontal = new FloatSetting.Builder("Horizontal %")
             .defaultValue(0f).min(0f).max(100f).minSlider(0f).maxSlider(100f).build();
+    // Floored at 60 rather than 0 - a flat/near-zero vertical trajectory after taking a hit is an
+    // obvious, unspoofable server-side observation. Keeping some real vertical knockback makes
+    // the deviation look like normal variance instead of a dead giveaway.
     private final FloatSetting vertical = new FloatSetting.Builder("Vertical %")
-            .defaultValue(100f).min(0f).max(100f).minSlider(0f).maxSlider(100f).build();
+            .defaultValue(100f).min(60f).max(100f).minSlider(60f).maxSlider(100f).build();
 
     public Velocity() {
         super("Velocity", Category.COMBAT);
