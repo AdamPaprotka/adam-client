@@ -14,6 +14,7 @@ import com.adam.adamsclient.client.module.combat.Reach;
 import com.adam.adamsclient.client.module.combat.TriggerBot;
 import com.adam.adamsclient.client.module.combat.Velocity;
 import com.adam.adamsclient.client.module.movement.AntiVoid;
+import com.adam.adamsclient.client.module.movement.BoatFly;
 import com.adam.adamsclient.client.module.movement.Fly;
 import com.adam.adamsclient.client.module.movement.Jesus;
 import com.adam.adamsclient.client.module.movement.LongJump;
@@ -71,6 +72,7 @@ public class ModuleManager {
         register(new LongJump());
         register(new NoSlow());
         register(new AntiVoid());
+        register(new BoatFly());
 
         // Visual
         register(new Fullbright());
