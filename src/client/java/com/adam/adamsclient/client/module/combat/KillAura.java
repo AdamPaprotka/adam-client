@@ -15,7 +15,6 @@ import net.minecraft.util.Hand;
 import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
-import net.minecraft.util.math.Vec3d;
 
 public class KillAura extends Module {
     public static KillAura INSTANCE;
@@ -119,6 +118,7 @@ public class KillAura extends Module {
         hasFlushedLook = false;
         currentTarget = null;
         lastAcquiredTarget = null;
+        releaseSmartKeys(MinecraftClient.getInstance());
     }
 
     /**
@@ -152,7 +152,10 @@ public class KillAura extends Module {
             targetAcquiredTime = System.currentTimeMillis();
             currentReactionDelay = (long) (float) reactionDelay.getValue() + (long) (Math.random() * 100);
         }
-        if (target == null) return;
+        if (target == null) {
+            releaseSmartKeys(mc);
+            return;
+        }
 
         if (tp.getValue()) {
             double dist = Math.sqrt(mc.player.squaredDistanceTo(target));
@@ -169,7 +172,7 @@ public class KillAura extends Module {
             }
         }
 
-        if (smart.getValue()) applySmart(mc, target);
+        if (smart.getValue()) applySmart(mc, target); else releaseSmartKeys(mc);
 
         // Always step gradually here regardless of the Smoothing setting - this runs every
         // single tick a target exists, so a true instant snap here is a permanent lock onto the
@@ -327,13 +330,32 @@ public class KillAura extends Module {
         double dz = goalZ - mc.player.getZ();
         double dist = Math.sqrt(dx * dx + dz * dz);
 
-        Vec3d vel = mc.player.getVelocity();
-        if (dist > 0.05) {
-            double spd = Math.min(smartSpeed.getValue(), dist * 0.5);
-            mc.player.setVelocity(dx / dist * spd, vel.y, dz / dist * spd);
-        } else {
-            mc.player.setVelocity(vel.x * 0.3, vel.y, vel.z * 0.3);
+        if (dist <= 0.05) {
+            releaseSmartKeys(mc);
+            return;
         }
+
+        // Hold actual movement keys instead of setting velocity directly, so the resulting
+        // motion is driven by vanilla's own input-to-velocity physics like real strafing -
+        // consistent with the input state a real player pressing those keys would have.
+        float yawRad = mc.player.getYaw() * ((float) Math.PI / 180F);
+        float sinYaw = MathHelper.sin(yawRad);
+        float cosYaw = MathHelper.cos(yawRad);
+        double strafe  = dx * cosYaw + dz * sinYaw;
+        double forward = -dx * sinYaw + dz * cosYaw;
+
+        double epsilon = 0.05;
+        mc.options.forwardKey.setPressed(forward > epsilon);
+        mc.options.backKey.setPressed(forward < -epsilon);
+        mc.options.leftKey.setPressed(strafe > epsilon);
+        mc.options.rightKey.setPressed(strafe < -epsilon);
+    }
+
+    private void releaseSmartKeys(MinecraftClient mc) {
+        mc.options.forwardKey.setPressed(false);
+        mc.options.backKey.setPressed(false);
+        mc.options.leftKey.setPressed(false);
+        mc.options.rightKey.setPressed(false);
     }
 
     /** True if stepping to (x,z) would run into a wall or over a 3-block hole. */
