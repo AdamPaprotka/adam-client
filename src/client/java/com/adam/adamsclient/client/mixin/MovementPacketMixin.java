@@ -2,7 +2,6 @@ package com.adam.adamsclient.client.mixin;
 
 import com.adam.adamsclient.client.GroundSpoofManager;
 import com.adam.adamsclient.client.RotationManager;
-import com.adam.adamsclient.client.module.combat.Criticals;
 import net.minecraft.network.ClientConnection;
 import net.minecraft.network.packet.Packet;
 import net.minecraft.network.packet.c2s.play.PlayerMoveC2SPacket;
@@ -22,14 +21,6 @@ public class MovementPacketMixin {
     private void onSend(Packet<?> packet, CallbackInfo ci) {
         if (RotationManager.rewriting || GroundSpoofManager.rewriting) return;
         if (!(packet instanceof PlayerMoveC2SPacket move)) return;
-
-        // Drop (not rewrite) any packet claiming onGround=true for a couple ticks right after
-        // Criticals' fake hop, so a natural truthful packet can't reset the server's fallDistance
-        // back to 0 before the attack is fully processed.
-        if (Criticals.suppressGroundTrueTicks > 0 && move.isOnGround()) {
-            ci.cancel();
-            return;
-        }
 
         boolean wantRotation = RotationManager.isSilent();
         boolean wantGround = GroundSpoofManager.isActive();
