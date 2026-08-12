@@ -131,7 +131,7 @@ public class BowAssist extends Module {
     protected void onDisable() {
         lastLanding = null;
         lastTrajectory = null;
-        RotationManager.silent = false;
+        RotationManager.bowRequest = false;
     }
 
     @Override
@@ -143,7 +143,7 @@ public class BowAssist extends Module {
         if (!mc.player.isUsingItem() || !(mc.player.getActiveItem().getItem() instanceof BowItem)) {
             lastLanding = null;
             lastTrajectory = null;
-            if (RotationManager.silent) RotationManager.silent = false;
+            if (RotationManager.bowRequest) RotationManager.bowRequest = false;
             return;
         }
 
@@ -161,7 +161,7 @@ public class BowAssist extends Module {
                 aiming = true;
             }
         }
-        RotationManager.silent = aiming && silentRotation.getValue();
+        RotationManager.bowRequest = aiming && silentRotation.getValue();
 
         if (showLanding.getValue()) {
             updateLandingPrediction(mc, v, charge);

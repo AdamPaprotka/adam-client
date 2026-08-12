@@ -22,7 +22,7 @@ public class MovementPacketMixin {
         if (RotationManager.rewriting || GroundSpoofManager.rewriting) return;
         if (!(packet instanceof PlayerMoveC2SPacket move)) return;
 
-        boolean wantRotation = RotationManager.silent;
+        boolean wantRotation = RotationManager.isSilent();
         boolean wantGround = GroundSpoofManager.isActive();
         if (!wantRotation && !wantGround) return;
 

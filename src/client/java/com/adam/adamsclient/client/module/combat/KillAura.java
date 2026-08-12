@@ -1,5 +1,6 @@
 package com.adam.adamsclient.client.module.combat;
 
+import com.adam.adamsclient.client.RotationManager;
 import com.adam.adamsclient.client.module.Module;
 import com.adam.adamsclient.client.module.setting.BoolSetting;
 import com.adam.adamsclient.client.module.setting.FloatSetting;
@@ -84,6 +85,7 @@ public class KillAura extends Module {
     @Override
     protected void onDisable() {
         attacking = false;
+        RotationManager.killAuraRequest = false;
     }
 
     @Override
@@ -118,7 +120,16 @@ public class KillAura extends Module {
             target = living;
         }
 
-        if (target == null) return;
+        if (target == null) {
+            RotationManager.killAuraRequest = false;
+            return;
+        }
+
+        // Keep the snap hidden from the server for as long as we're tracking a target, not
+        // just on the attack tick itself - the anticheat flag fires on the rotation being
+        // inconsistent with the player's own mouse movement while it's snapped, and that
+        // window covers every tick the snap is held, not only the moment of the hit.
+        RotationManager.killAuraRequest = snapHit.getValue();
 
         // TP to attack range if target is too far away
         if (tp.getValue()) {
