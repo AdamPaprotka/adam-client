@@ -66,6 +66,11 @@ public class KillAura extends Module {
     private int ticksSinceReady = 0;
     private int currentRandomTickDelay = 0;
 
+    /** Last rotation actually sent via flushLook - resending the exact same values is a dead giveaway. */
+    private boolean hasFlushedLook = false;
+    private float lastFlushedYaw = 0f;
+    private float lastFlushedPitch = 0f;
+
     /** True only on the tick KillAura actually lands a swing — read by AutoShield to duck the block. */
     public static volatile boolean attacking = false;
 
@@ -95,6 +100,7 @@ public class KillAura extends Module {
     @Override
     protected void onDisable() {
         attacking = false;
+        hasFlushedLook = false;
     }
 
     @Override
@@ -188,11 +194,23 @@ public class KillAura extends Module {
         lastAttackTime = now;
     }
 
-    /** Sends the current real rotation immediately, so it reaches the server before the attack packet does. */
+    /**
+     * Sends the current real rotation immediately, so it reaches the server before the attack
+     * packet does. Skips the send entirely if it wouldn't change anything - real mouse input
+     * never produces bit-identical yaw/pitch tick to tick, so repeating the exact same values is
+     * itself a tell, distinct from whether the rotation is correct in the first place.
+     */
     private void flushLook(MinecraftClient mc) {
         if (mc.getNetworkHandler() == null) return;
-        mc.getNetworkHandler().getConnection().send(new PlayerMoveC2SPacket.LookAndOnGround(
-                mc.player.getYaw(), mc.player.getPitch(), mc.player.isOnGround(), false));
+        float yaw = mc.player.getYaw();
+        float pitch = mc.player.getPitch();
+        if (hasFlushedLook && yaw == lastFlushedYaw && pitch == lastFlushedPitch) return;
+
+        mc.getNetworkHandler().getConnection().send(
+                new PlayerMoveC2SPacket.LookAndOnGround(yaw, pitch, mc.player.isOnGround(), false));
+        hasFlushedLook = true;
+        lastFlushedYaw = yaw;
+        lastFlushedPitch = pitch;
     }
 
     /** Strafe in a circle around the target while maintaining keepDistance. */
