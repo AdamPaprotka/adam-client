@@ -24,10 +24,17 @@ public class AutoShield extends Module {
     private final FloatSetting holdTicks = new FloatSetting.Builder("Hold Ticks")
             .defaultValue(6f).min(1f).max(40f).minSlider(1f).maxSlider(20f).build();
 
-    /** While both this and KillAura are on, stay blocked permanently except the exact tick KillAura swings. */
+    /** While both this and KillAura are on, stay blocked except for a short window around each swing. */
     private final BoolSetting killAuraSync = new BoolSetting("KillAura Sync", true);
+    // Instantly re-blocking the very next tick after every single hit bundles stop-block,
+    // attack, and start-block into a 1-2 tick window every attack - tight enough clustering to
+    // read as a burst of actions on its own, separate from the attack rate itself. Spreading the
+    // duck over a few ticks avoids that tight bundling.
+    private final FloatSetting duckTicks = new FloatSetting.Builder("Duck Ticks")
+            .defaultValue(4f).min(1f).max(20f).minSlider(1f).maxSlider(10f).build();
 
     private int blockTicksLeft = 0;
+    private int duckTicksLeft = 0;
 
     public AutoShield() {
         super("AutoShield", Category.COMBAT);
@@ -37,6 +44,7 @@ public class AutoShield extends Module {
         addSetting(reactToSwing);
         addSetting(holdTicks);
         addSetting(killAuraSync);
+        addSetting(duckTicks);
     }
 
     @Override
@@ -50,8 +58,11 @@ public class AutoShield extends Module {
 
         boolean pressed;
         if (killAuraActive) {
-            // Stay blocked at all times; only duck it on the exact tick KillAura lands a hit.
-            pressed = !KillAura.attacking;
+            // Stay blocked at all times; duck it for a short window (not a single-tick blip)
+            // around each hit so the un/re-block doesn't bundle tightly with the attack packet.
+            if (KillAura.attacking) duckTicksLeft = Math.max(1, duckTicks.getValue().intValue());
+            else if (duckTicksLeft > 0) duckTicksLeft--;
+            pressed = duckTicksLeft <= 0;
         } else {
             boolean threat = findThreat(mc);
             if (threat) {
@@ -70,6 +81,7 @@ public class AutoShield extends Module {
         MinecraftClient mc = MinecraftClient.getInstance();
         mc.options.useKey.setPressed(false);
         blockTicksLeft = 0;
+        duckTicksLeft = 0;
     }
 
     private boolean findThreat(MinecraftClient mc) {
