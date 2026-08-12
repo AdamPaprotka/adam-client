@@ -10,7 +10,9 @@ import com.adam.adamsclient.client.module.combat.Criticals;
 import com.adam.adamsclient.client.module.combat.HitBox;
 import com.adam.adamsclient.client.module.combat.KillAura;
 import com.adam.adamsclient.client.module.combat.Reach;
+import com.adam.adamsclient.client.module.combat.TriggerBot;
 import com.adam.adamsclient.client.module.combat.Velocity;
+import com.adam.adamsclient.client.module.movement.AntiVoid;
 import com.adam.adamsclient.client.module.movement.Fly;
 import com.adam.adamsclient.client.module.movement.Jesus;
 import com.adam.adamsclient.client.module.movement.LongJump;
@@ -31,6 +33,7 @@ import com.adam.adamsclient.client.module.visual.Fullbright;
 import com.adam.adamsclient.client.module.visual.NoHurtCam;
 import com.adam.adamsclient.client.module.visual.Tracers;
 import com.adam.adamsclient.client.module.visual.XRay;
+import com.adam.adamsclient.client.module.visual.Zoom;
 import com.adam.adamsclient.client.module.world.Nuker;
 import com.adam.adamsclient.client.module.world.Scaffold;
 import com.adam.adamsclient.client.module.world.Timer;
@@ -54,6 +57,7 @@ public class ModuleManager {
         register(new HitBox());
         register(new AntiAntiKillaura());
         register(new AutoShield());
+        register(new TriggerBot());
 
         // Movement
         register(new Sprint());
@@ -65,6 +69,7 @@ public class ModuleManager {
         register(new Spider());
         register(new LongJump());
         register(new NoSlow());
+        register(new AntiVoid());
 
         // Visual
         register(new Fullbright());
@@ -72,6 +77,7 @@ public class ModuleManager {
         register(new NoHurtCam());
         register(new ESP());
         register(new Tracers());
+        register(new Zoom());
 
         // Player
         register(new FakeLag());
