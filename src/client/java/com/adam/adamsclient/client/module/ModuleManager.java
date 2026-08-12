@@ -1,6 +1,7 @@
 package com.adam.adamsclient.client.module;
 
 import com.adam.adamsclient.client.RotationManager;
+import com.adam.adamsclient.client.module.combat.AimAssist;
 import com.adam.adamsclient.client.module.combat.AntiAntiKillaura;
 import com.adam.adamsclient.client.module.combat.AutoClicker;
 import com.adam.adamsclient.client.module.combat.AutoShield;
@@ -57,6 +58,7 @@ public class ModuleManager {
         register(new AntiAntiKillaura());
         register(new AutoShield());
         register(new TriggerBot());
+        register(new AimAssist());
 
         // Movement
         register(new Sprint());
