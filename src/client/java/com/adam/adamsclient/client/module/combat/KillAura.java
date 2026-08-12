@@ -162,13 +162,21 @@ public class KillAura extends Module {
         attacking = true;
 
         if (snapHit.getValue()) {
-            // Snap and attack, but do NOT revert rotation right after - an instant
-            // snap-then-revert on consecutive packets is exactly what anticheats key
-            // off of to flag killaura. Leaving it snapped lets it decay naturally
-            // instead of an obvious same-tick round trip.
+            // Rotation packets are hidden via RotationManager.killAuraRequest the whole time a
+            // target is tracked, so the server never sees this snap (or a revert) in the first
+            // place - reverting locally right after the attack matters for a different reason:
+            // it keeps mc.player's yaw consistent with the real (reported) rotation for every
+            // following tick's movement-input-to-velocity conversion. Leaving it snapped would
+            // silently skew actual walking direction away from the reported look every tick
+            // movement keys are held, which is a mismatch visible purely from position deltas
+            // and reported rotation - independent of anything sent in the rotation packets.
+            float savedYaw = mc.player.getYaw();
+            float savedPitch = mc.player.getPitch();
             rotateTo(mc, target, true);
             mc.interactionManager.attackEntity(mc.player, target);
             mc.player.swingHand(Hand.MAIN_HAND);
+            mc.player.setYaw(savedYaw);
+            mc.player.setPitch(savedPitch);
         } else {
             if (!noRotate.getValue()) rotateTo(mc, target, smoothRotation.getValue());
             mc.interactionManager.attackEntity(mc.player, target);
