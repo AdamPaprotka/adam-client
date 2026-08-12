@@ -17,9 +17,24 @@ import net.minecraft.entity.effect.StatusEffects;
 public class Criticals extends Module {
     public static Criticals INSTANCE;
 
+    /** Ticks left to drop any outgoing packet claiming onGround=true, so the fake hop's
+     * fallDistance bump doesn't get reset back to 0 by the next natural (truthful) packet
+     * before the attack is fully processed server-side. */
+    public static volatile int suppressGroundTrueTicks = 0;
+
     public Criticals() {
         super("Criticals", Category.COMBAT);
         INSTANCE = this;
+    }
+
+    @Override
+    protected void onDisable() {
+        suppressGroundTrueTicks = 0;
+    }
+
+    @Override
+    public void onTick() {
+        if (suppressGroundTrueTicks > 0) suppressGroundTrueTicks--;
     }
 
     public boolean shouldForceCrit(ClientPlayerEntity player) {

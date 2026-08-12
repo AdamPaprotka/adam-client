@@ -34,5 +34,6 @@ public class CriticalsMixin {
         var connection = mc.getNetworkHandler().getConnection();
         connection.send(new PlayerMoveC2SPacket.PositionAndOnGround(x, y + 0.0625, z, false, false));
         connection.send(new PlayerMoveC2SPacket.PositionAndOnGround(x, y, z, false, false));
+        Criticals.suppressGroundTrueTicks = 2;
     }
 }
