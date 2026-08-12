@@ -20,7 +20,8 @@
     "AntiCrashMixin",
     "MouseRotationMixin",
     "MovementPacketMixin",
-    "AntiKickMixin"
+    "AntiKickMixin",
+    "CriticalsMixin"
   ],
   "injectors": {
     "defaultRequire": 1
