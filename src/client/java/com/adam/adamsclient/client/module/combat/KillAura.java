@@ -151,15 +151,13 @@ public class KillAura extends Module {
         attacking = true;
 
         if (snapHit.getValue()) {
-            float savedYaw = mc.player.getYaw();
-            float savedPitch = mc.player.getPitch();
-
+            // Snap and attack, but do NOT revert rotation right after - an instant
+            // snap-then-revert on consecutive packets is exactly what anticheats key
+            // off of to flag killaura. Leaving it snapped lets it decay naturally
+            // instead of an obvious same-tick round trip.
             rotateTo(mc, target, true);
             mc.interactionManager.attackEntity(mc.player, target);
             mc.player.swingHand(Hand.MAIN_HAND);
-
-            mc.player.setYaw(savedYaw);
-            mc.player.setPitch(savedPitch);
         } else {
             if (!noRotate.getValue()) rotateTo(mc, target, smoothRotation.getValue());
             mc.interactionManager.attackEntity(mc.player, target);
