@@ -21,12 +21,14 @@ public class KillAura extends Module {
     public static KillAura INSTANCE;
 
     // Vanilla's entity-attack reach attribute defaults to 3.0 - 4.5 is the *block* interaction
-    // reach, not entity. 3.0 is the exact legal boundary with zero margin, though: against a
-    // moving target, ordinary latency between the client's rendered position for them and what
-    // the server currently has pushes attacks right at that edge over the server's own limit.
-    // 2.7 leaves enough room to absorb that jitter without meaningfully changing effective reach.
+    // reach, not entity. Grim specifically runs a predictive simulation engine that reconstructs
+    // the target's server-authoritative position independently and checks against a stated
+    // tolerance of ~3.01 - barely any margin above the exact vanilla value - so ordinary
+    // interpolation lag between what the client renders for a moving target and what Grim's own
+    // simulation believes can still tip an attack over the edge even at 2.7. 2.4 leaves enough
+    // slack to absorb that against a stricter, prediction-based reach check specifically.
     private final FloatSetting range = new FloatSetting.Builder("Range")
-            .defaultValue(2.7f).min(0f).max(10f).minSlider(0f).maxSlider(6f).build();
+            .defaultValue(2.4f).min(0f).max(10f).minSlider(0f).maxSlider(6f).build();
     private final BoolSetting players       = new BoolSetting("Players", true);
     private final BoolSetting mobs          = new BoolSetting("Mobs", true);
     private final BoolSetting animals       = new BoolSetting("Animals", false);
