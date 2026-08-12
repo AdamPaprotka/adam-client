@@ -15,7 +15,6 @@
     "NoHurtCamMixin",
     "SimpleOptionMixin",
     "MouseMixin",
-    "WorldRendererMixin",
     "MinecraftClientAccessor",
     "AntiCrashMixin",
     "MouseRotationMixin",

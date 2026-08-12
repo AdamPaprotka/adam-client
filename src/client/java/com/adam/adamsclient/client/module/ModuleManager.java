@@ -38,7 +38,6 @@ import com.adam.adamsclient.client.module.world.Nuker;
 import com.adam.adamsclient.client.module.world.Scaffold;
 import com.adam.adamsclient.client.module.world.Timer;
 
-import net.minecraft.client.util.math.MatrixStack;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -119,12 +118,6 @@ public class ModuleManager {
         RotationManager.tick();
         for (Module module : modules) {
             if (module.isEnabled()) module.onTick();
-        }
-    }
-
-    public static void onRender(MatrixStack matrices, float tickDelta) {
-        for (Module module : modules) {
-            if (module.isEnabled()) module.onRender(matrices, tickDelta);
         }
     }
 }
